@@ -3,6 +3,7 @@ import { getConnInfo } from '@hono/node-server/conninfo'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { describePart, readingInWord, splitWord, type CharacterDetail, type WordDetail } from './core'
+import { admin } from './admin'
 import { getBundle, getCharacters, getComponents, getVersion, getWord } from './queries'
 
 const app = new Hono()
@@ -15,6 +16,8 @@ const MAX_REQUESTS = 120
 const hits = new Map<string, { count: number; resetAt: number }>()
 
 app.use(async (c, next) => {
+  // The admin page is token-protected and pages through thousands of rows; it is not scraping.
+  if (c.req.path.startsWith('/admin')) return next()
   const ip = getConnInfo(c).remote.address ?? 'unknown'
   const now = Date.now()
   let entry = hits.get(ip)
@@ -30,6 +33,8 @@ setInterval(() => {
   const now = Date.now()
   for (const [ip, entry] of hits) if (entry.resetAt <= now) hits.delete(ip)
 }, WINDOW_MS).unref()
+
+app.route('/admin', admin)
 
 app.get('/version', async (c) => c.json({ version: await getVersion() }))
 

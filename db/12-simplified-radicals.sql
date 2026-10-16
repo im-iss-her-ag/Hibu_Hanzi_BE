@@ -1,0 +1,16 @@
+-- Unihan's kRSUnicode marks the simplified form of a radical with an apostrophe
+-- (说 is "149'.7" = radical 讠, not 言). 11-* stored the traditional Kangxi form for every
+-- character, which is wrong on screen for a product that teaches "look at the character,
+-- see the radical": the learner cannot find 言 in 读.
+--
+-- This file is NOT the place that decides which characters are affected - the apostrophe
+-- in Unihan is, and data-tools/import-unihan.mts reads it. Run that script instead:
+--
+--   cd data-tools && npx --prefix ../BE tsx --env-file=../BE/.env ./import-unihan.mts
+--
+-- An earlier version of this file matched on the radical list alone and so also rewrote
+-- 18 characters that keep the full form in simplified script (言 itself, 累, 食, 金...);
+-- 13-fix-radical-overreach.sql undoes that. Kept as a record of the migration order.
+--
+-- Positional variants (氵 for 水, 亻 for 人, 扌 for 手) are marked nowhere in Unihan and
+-- are left on the Kangxi form for the team to adjust by hand.
