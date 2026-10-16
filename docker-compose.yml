@@ -1,0 +1,15 @@
+# Dev database only. Schema and seed in db/ run once, on an empty volume (`npm run db:reset` to redo).
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: hibu
+      POSTGRES_PASSWORD: hibu
+      POSTGRES_DB: hibu
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+volumes:
+  pgdata:
