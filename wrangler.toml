@@ -1,0 +1,28 @@
+# Cloudflare Workers config for the API. Local development still uses `npm run dev` (Node);
+# this file is for `npm run deploy` and `npm run dev:worker`.
+name = "hibu-api"
+main = "src/worker.ts"
+compatibility_date = "2026-05-01"
+# pg needs Node's net/tls/crypto APIs, which nodejs_compat provides on Workers.
+compatibility_flags = ["nodejs_compat"]
+
+# Hyperdrive pools connections to Supabase. Create it once with:
+#   npx wrangler hyperdrive create hibu-db --connection-string="<Supabase connection string>"
+# then paste the id it prints below.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "8a054587f66f4143ac86df008ec72b3b"
+
+# Per-IP rate limit: 120 requests per 60 s, checked in src/worker.ts. namespace_id is any
+# number unique within the account.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
+# Daily ping so the Supabase free project never auto-pauses (it pauses after 7 idle days).
+[triggers]
+crons = ["0 3 * * *"]
+
+[observability]
+enabled = true

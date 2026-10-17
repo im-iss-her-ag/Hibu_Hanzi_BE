@@ -1,7 +1,5 @@
-import pg from 'pg'
 import type { Bundle, BundleCharacter, Character, Component, Word } from './core'
-
-export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
+import { db } from './db'
 
 // Rows are shaped into the camelCase core types in SQL, so the API returns them as-is.
 
@@ -37,7 +35,7 @@ const VISIBLE = `status = 'reviewed' AND deleted_at IS NULL`
 const EPOCH_US = (col: string) => `(extract(epoch FROM ${col}) * 1000000)::bigint`
 
 export async function getVersion(): Promise<string> {
-  const { rows } = await pool.query(`
+  const { rows } = await db().query(`
     SELECT ${EPOCH_US('greatest(max(t.updated_at), to_timestamp(0))')}::text AS version FROM (
       SELECT updated_at FROM characters
       UNION ALL SELECT updated_at FROM character_readings
@@ -47,7 +45,7 @@ export async function getVersion(): Promise<string> {
 }
 
 export async function getCharacters(hanzi: readonly string[]): Promise<Character[]> {
-  const { rows } = await pool.query(
+  const { rows } = await db().query(
     `SELECT ${CHARACTER_JSON} AS data FROM characters c WHERE c.hanzi = ANY($1) AND c.${VISIBLE}`,
     [hanzi],
   )
@@ -55,7 +53,7 @@ export async function getCharacters(hanzi: readonly string[]): Promise<Character
 }
 
 export async function getComponents(forms: readonly string[]): Promise<Component[]> {
-  const { rows } = await pool.query(
+  const { rows } = await db().query(
     `SELECT ${COMPONENT_JSON} AS data FROM components k WHERE k.form = ANY($1) AND k.deleted_at IS NULL`,
     [forms],
   )
@@ -63,7 +61,7 @@ export async function getComponents(forms: readonly string[]): Promise<Component
 }
 
 export async function getWord(word: string): Promise<Word | null> {
-  const { rows } = await pool.query(`SELECT ${WORD_JSON} AS data FROM words w WHERE w.word = $1 AND w.${VISIBLE}`, [word])
+  const { rows } = await db().query(`SELECT ${WORD_JSON} AS data FROM words w WHERE w.word = $1 AND w.${VISIBLE}`, [word])
   return rows[0]?.data ?? null
 }
 
@@ -81,10 +79,10 @@ export async function getBundle(since: string | null): Promise<Bundle> {
 
   const [version, chars, words, removedChars, removedWords] = await Promise.all([
     getVersion(),
-    pool.query(`SELECT ${BUNDLE_CHARACTER_JSON} AS data FROM characters c WHERE ${IN_BUNDLE('c')} AND ${charChanged}`, [after]),
-    pool.query(`SELECT ${WORD_JSON} AS data FROM words w WHERE ${IN_BUNDLE('w')} AND ${EPOCH_US('w.updated_at')} > $1`, [after]),
-    since === null ? null : pool.query(`SELECT c.hanzi FROM characters c WHERE NOT (${IN_BUNDLE('c')}) AND ${charChanged}`, [after]),
-    since === null ? null : pool.query(`SELECT w.word FROM words w WHERE NOT (${IN_BUNDLE('w')}) AND ${EPOCH_US('w.updated_at')} > $1`, [after]),
+    db().query(`SELECT ${BUNDLE_CHARACTER_JSON} AS data FROM characters c WHERE ${IN_BUNDLE('c')} AND ${charChanged}`, [after]),
+    db().query(`SELECT ${WORD_JSON} AS data FROM words w WHERE ${IN_BUNDLE('w')} AND ${EPOCH_US('w.updated_at')} > $1`, [after]),
+    since === null ? null : db().query(`SELECT c.hanzi FROM characters c WHERE NOT (${IN_BUNDLE('c')}) AND ${charChanged}`, [after]),
+    since === null ? null : db().query(`SELECT w.word FROM words w WHERE NOT (${IN_BUNDLE('w')}) AND ${EPOCH_US('w.updated_at')} > $1`, [after]),
   ])
 
   return {

@@ -1,21 +1,21 @@
 import { serve } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { describePart, readingInWord, splitWord, type CharacterDetail, type WordDetail } from './core'
-import { admin } from './admin'
-import { getBundle, getCharacters, getComponents, getVersion, getWord } from './queries'
+import { app } from './app'
+import { usePool } from './db'
 
-const app = new Hono()
+// Node entry, for local development (npm run dev). Production runs src/worker.ts.
 
-app.use(cors())
+const pool = usePool(process.env.DATABASE_URL)
+const server = new Hono()
 
-// Fixed-window limit per IP (DESIGN.md §10). In memory, so it resets on restart and is per process.
+// Fixed-window limit per IP (DESIGN.md §10). In memory, so it resets on restart and is per
+// process. On Workers this is done by a Cloudflare Rate Limiting Rule instead.
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 120
 const hits = new Map<string, { count: number; resetAt: number }>()
 
-app.use(async (c, next) => {
+server.use(async (c, next) => {
   // The admin page is token-protected and pages through thousands of rows; it is not scraping.
   if (c.req.path.startsWith('/admin')) return next()
   const ip = getConnInfo(c).remote.address ?? 'unknown'
@@ -34,57 +34,21 @@ setInterval(() => {
   for (const [ip, entry] of hits) if (entry.resetAt <= now) hits.delete(ip)
 }, WINDOW_MS).unref()
 
-app.route('/admin', admin)
-
-app.get('/version', async (c) => c.json({ version: await getVersion() }))
-
-app.get('/bundle', async (c) => {
-  const since = c.req.query('since') ?? null
-  if (since !== null && !/^\d{1,20}$/.test(since)) return c.json({ error: 'invalid_since' }, 400)
-  return c.json(await getBundle(since))
-})
-
-app.get('/characters/:hanzi', async (c) => {
-  const hanzi = c.req.param('hanzi')
-  if (splitWord(hanzi).length !== 1) return c.json({ error: 'invalid_hanzi' }, 400)
-
-  const [character] = await getCharacters([hanzi])
-  if (!character) return c.json({ error: 'not_found' }, 404)
-
-  const forms = [...new Set([...character.parts.map((p) => p.part), ...(character.radical ? [character.radical] : [])])]
-  const [components, partChars] = await Promise.all([getComponents(forms), getCharacters(forms)])
-
-  const detail: CharacterDetail = {
-    character,
-    radical: character.radical ? describePart(character.radical, components, partChars) : null,
-    parts: character.parts.map((p) => describePart(p.part, components, partChars)),
+// Supabase Keep-Alive: Ping 1 ngày 1 lần để chống auto-pause (Free tier tự tắt sau 7 ngày không dùng).
+// On Workers the same ping is a daily Cron Trigger (src/worker.ts, wrangler.toml).
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
+async function pingSupabaseKeepAlive() {
+  try {
+    await pool.query('SELECT 1')
+    console.log(`[Supabase Keep-Alive] Đã ping giữ kết nối thành công lúc ${new Date().toLocaleString('vi-VN')}`)
+  } catch (err) {
+    console.error('[Supabase Keep-Alive] Lỗi ping:', err instanceof Error ? err.message : err)
   }
-  return c.json(detail)
-})
+}
+setTimeout(pingSupabaseKeepAlive, 15_000)
+setInterval(pingSupabaseKeepAlive, ONE_DAY_MS).unref()
 
-app.get('/words/:word', async (c) => {
-  const text = c.req.param('word')
-  const hanzi = splitWord(text)
-  if (hanzi.length < 1 || hanzi.length > 12) return c.json({ error: 'invalid_word' }, 400)
-
-  const word = await getWord(text)
-  if (!word) return c.json({ error: 'not_found' }, 404)
-
-  const chars = await getCharacters([...new Set(hanzi)])
-  const detail: WordDetail = {
-    word,
-    characters: hanzi.map((h, i) => {
-      const character = chars.find((ch) => ch.hanzi === h) ?? null
-      return { hanzi: h, character, reading: character ? readingInWord(character, word, i) : null }
-    }),
-  }
-  return c.json(detail)
-})
-
-app.onError((err, c) => {
-  console.error(err)
-  return c.json({ error: 'internal_error' }, 500)
-})
+server.route('/', app)
 
 const port = Number(process.env.PORT ?? 3000)
-serve({ fetch: app.fetch, port }, () => console.log(`API at http://localhost:${port}`))
+serve({ fetch: server.fetch, port }, () => console.log(`API at http://localhost:${port}`))

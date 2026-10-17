@@ -8,13 +8,17 @@
     "start": "tsx --env-file-if-exists=.env src/index.ts",
     "db:up": "docker compose up -d",
     "db:reset": "docker compose down -v && docker compose up -d",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
     "@types/node": "^20.19.43",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.86.0"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.3",

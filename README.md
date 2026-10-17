@@ -85,3 +85,58 @@ Hibu_Hanzi/
 ├─ data-tools/          # Công cụ xử lý & kiểm thử dữ liệu
 └─ DESIGN.md            # Tài liệu thiết kế kỹ thuật và lộ trình sản phẩm
 ```
+
+---
+
+## ☁️ Triển khai BE lên Cloudflare Workers
+
+BE có hai điểm chạy dùng chung một bộ route (`src/app.ts`):
+
+| Lệnh | Chạy | Dùng khi |
+|---|---|---|
+| `npm run dev` | Node (`src/index.ts`) | Phát triển hằng ngày |
+| `npm run dev:worker` | Workers runtime (`src/worker.ts`) | Thử đúng môi trường production |
+| `npm run deploy` | Đẩy `src/worker.ts` lên Cloudflare | Phát hành |
+
+### Lần đầu
+
+```bash
+cd BE
+npx wrangler login
+
+# 1. Hyperdrive giữ kết nối tới Supabase. Dùng chuỗi "Session pooler" (cổng 5432) của Supabase,
+#    BỎ phần ?sslmode=no-verify ở cuối.
+npx wrangler hyperdrive create hibu-db \
+  --connection-string="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+#    Dán id nó in ra vào wrangler.toml, thay cho PASTE_HYPERDRIVE_ID_HERE.
+
+# 2. Mã cho trang /admin trên production (nên khác mã dùng ở máy local).
+npx wrangler secret put ADMIN_TOKEN
+
+# 3. Deploy. Lệnh in ra địa chỉ dạng https://hibu-api.<tên-tài-khoản>.workers.dev
+npm run deploy
+```
+
+Sau đó, trong Cloudflare Pages của FE: **Settings → Environment variables**, đặt
+`VITE_API_URL` = địa chỉ Worker ở trên, rồi build lại FE.
+
+### Những lần sau
+
+```bash
+npm run deploy
+```
+
+### Đã có sẵn trong Worker
+
+- **Rate limit** 120 request/phút mỗi IP (`[[ratelimits]]` trong `wrangler.toml`). `/admin` không bị tính.
+- **Ping Supabase hằng ngày** lúc 03:00 UTC (`[triggers] crons`) để project Free không tự tạm dừng.
+- **Log**: Cloudflare dashboard → Workers → hibu-api → Logs.
+
+### Chạy thử Worker trên máy
+
+```bash
+# Hyperdrive khi chạy local nối thẳng tới DB bằng chuỗi này:
+export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$(grep ^DATABASE_URL .env | cut -d= -f2-)"
+echo "ADMIN_TOKEN=$(grep ^ADMIN_TOKEN .env | cut -d= -f2)" > .dev.vars
+npm run dev:worker          # http://localhost:8787
+```
