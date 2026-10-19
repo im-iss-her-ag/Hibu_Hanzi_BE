@@ -255,10 +255,4 @@ Lợi thế lâu dài là **tốc độ và chất lượng nội dung**: nhóm 
 
 ## 11. Hướng kinh doanh
 
-- Bản cơ bản (HSK1–2, widget) **miễn phí**, là cách để có người dùng.
-- Các phần có thể thu phí:
-  - Dữ liệu đầy đủ (HSK3–6, tách chữ, chiết tự).
-  - Tài khoản, đồng bộ tiến độ, ôn tập thông minh.
-  - Chế độ lớp học cho giáo viên và trung tâm (hướng có doanh thu rõ nhất).
-  - Bộ từ theo giáo trình, bộ từ chuyên ngành (buôn hàng).
-- Ưu tiên trả phí một lần hoặc gói cho trung tâm. Tránh gói thuê bao cho người dùng lẻ ở giai đoạn đầu.
+- Toàn bộ ứng dụng và dữ liệu **miễn phí**, không có gói trả phí. Mục tiêu là phục vụ việc học.
