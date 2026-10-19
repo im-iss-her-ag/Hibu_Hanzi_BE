@@ -65,10 +65,10 @@ export async function getWord(word: string): Promise<Word | null> {
   return rows[0]?.data ?? null
 }
 
-// The basic bundle is HSK1–2 in either standard (DESIGN.md §6).
+// The basic bundle is HSK1–4 in either standard (DESIGN.md §6).
 // coalesce: NULL levels must give false, not NULL, or `NOT (...)` drops the row from `removed`.
 const IN_BUNDLE = (t: string) =>
-  `coalesce(${t}.status = 'reviewed' AND ${t}.deleted_at IS NULL AND (${t}.hsk2_level <= 2 OR ${t}.hsk3_level <= 2), false)`
+  `coalesce(${t}.status = 'reviewed' AND ${t}.deleted_at IS NULL AND (${t}.hsk2_level <= 4 OR ${t}.hsk3_level <= 4), false)`
 
 // since = null returns the full bundle. Otherwise only rows changed after `since`, plus the
 // keys of rows that left the bundle (deleted, unreviewed, or moved to a higher level).

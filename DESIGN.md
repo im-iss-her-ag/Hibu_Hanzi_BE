@@ -77,7 +77,7 @@ Bước 4  Expo (React Native) app iOS/Android thật, khi đã có người dù
 │     │                                                   │
 │     ▼                                                   │
 │  Dữ liệu local                                          │
-│   ├─ Gói cơ bản đóng sẵn: HSK1–2 (chữ, pinyin,          │
+│   ├─ Gói cơ bản đóng sẵn: HSK1–4 (chữ, pinyin,          │
 │   │  Hán Việt, nghĩa) → luôn chạy được offline          │
 │   ├─ Cache: những chữ người dùng đã xem                 │
 │   └─ Nét viết: HSK1–2 đóng sẵn, còn lại tải khi cần     │
