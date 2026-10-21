@@ -11,7 +11,7 @@ const READINGS_JSON = `
 
 const CHARACTER_JSON = `json_build_object(
   'id', c.id, 'hanzi', c.hanzi, 'traditional', c.traditional, 'radical', c.radical,
-  'chietTu', c.chiet_tu, 'chietTuType', c.chiet_tu_type, 'strokeCount', c.stroke_count,
+  'chietTu', c.chiet_tu, 'chietTuType', c.chiet_tu_type, 'mnemonicVi', c.mnemonic_vi, 'strokeCount', c.stroke_count,
   'hsk2Level', c.hsk2_level, 'hsk3Level', c.hsk3_level,
   'readings', ${READINGS_JSON},
   'parts', (SELECT coalesce(json_agg(json_build_object('part', p.part, 'position', p.position) ORDER BY p.position), '[]')
@@ -27,7 +27,7 @@ const WORD_JSON = `json_build_object(
 
 const COMPONENT_JSON = `json_build_object(
   'id', k.id, 'form', k.form, 'variantOf', k.variant_of, 'isRadical', k.is_radical, 'nameVi', k.name_vi,
-  'hanViet', k.han_viet, 'meaningVi', k.meaning_vi, 'strokeCount', k.stroke_count)`
+  'pinyin', k.pinyin, 'hanViet', k.han_viet, 'meaningVi', k.meaning_vi, 'strokeCount', k.stroke_count)`
 
 const VISIBLE = `status = 'reviewed' AND deleted_at IS NULL`
 
@@ -47,6 +47,17 @@ export async function getVersion(): Promise<string> {
 export async function getCharacters(hanzi: readonly string[]): Promise<Character[]> {
   const { rows } = await db().query(
     `SELECT ${CHARACTER_JSON} AS data FROM characters c WHERE c.hanzi = ANY($1) AND c.${VISIBLE}`,
+    [hanzi],
+  )
+  return rows.map((r) => r.data)
+}
+
+// Parts of a character only need a reading, and many parts (井, 隹) are characters that are
+// not reviewed or not in HSK at all, so this ignores status.
+export async function getPartCharacters(hanzi: readonly string[]): Promise<Pick<Character, 'hanzi' | 'readings'>[]> {
+  const { rows } = await db().query(
+    `SELECT json_build_object('hanzi', c.hanzi, 'readings', ${READINGS_JSON}) AS data
+     FROM characters c WHERE c.hanzi = ANY($1) AND c.deleted_at IS NULL`,
     [hanzi],
   )
   return rows.map((r) => r.data)

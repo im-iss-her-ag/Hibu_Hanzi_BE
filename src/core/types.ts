@@ -15,6 +15,8 @@ export interface Component {
   variantOf: string | null
   isRadical: boolean
   nameVi: string | null
+  // Optional: the built-in offline sample has none.
+  pinyin?: string | null
   hanViet: string | null
   meaningVi: string | null
   strokeCount: number | null
@@ -39,6 +41,8 @@ export interface Character {
   radical: string | null
   chietTu: string | null
   chietTuType: ChietTuType | null
+  // Quick memory aid built on the parts; chietTu holds the origin.
+  mnemonicVi: string | null
   strokeCount: number | null
   hsk2Level: HskLevel | null
   hsk3Level: Hsk3Level | null
@@ -59,11 +63,17 @@ export interface Word {
 
 // --- API responses (DESIGN.md §6) ---
 
+// 'radical' = the character's radical or a radical-only shape (氵, 辶); 'character' = a standalone
+// character (马 in 妈); 'component' = any other shape. The UI draws each kind differently.
+export type PartKind = 'radical' | 'character' | 'component'
+
 export interface PartInfo {
   part: string
+  pinyin: string | null
   hanViet: string | null
   meaningVi: string | null
   label: string | null
+  kind: PartKind
 }
 
 export interface CharacterDetail {

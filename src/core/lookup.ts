@@ -1,4 +1,4 @@
-import type { Character, CharacterReading, Component, PartInfo, Word } from './types'
+import type { Character, CharacterReading, Component, PartInfo, PartKind, Word } from './types'
 
 export function primaryReading(char: Pick<Character, 'readings'>): CharacterReading | null {
   return char.readings.find((r) => r.isPrimary) ?? char.readings[0] ?? null
@@ -22,19 +22,26 @@ export function splitWord(word: string): string[] {
 
 // A part can be a component (氵) or a character in its own right (女); components win
 // because radicals carry the "bộ ..." name learners know them by.
+// `radical` is the character's own radical, which is always shown as a radical.
 export function describePart(
   part: string,
   components: readonly Component[],
   characters: readonly Pick<Character, 'hanzi' | 'readings'>[],
+  radical: string | null = null,
 ): PartInfo {
   const component = components.find((c) => c.form === part)
-  if (component) {
-    return { part, hanViet: component.hanViet, meaningVi: component.meaningVi, label: component.nameVi }
-  }
   const char = characters.find((c) => c.hanzi === part)
   const reading = char ? primaryReading(char) : null
-  if (reading) {
-    return { part, hanViet: reading.hanViet, meaningVi: reading.meaningVi, label: null }
+  const kind: PartKind =
+    part === radical || (component?.isRadical && !reading) ? 'radical'
+      : reading ? 'character'
+        : component?.isRadical ? 'radical' : 'component'
+  return {
+    part,
+    pinyin: component?.pinyin ?? reading?.pinyin ?? null,
+    hanViet: component?.hanViet ?? reading?.hanViet ?? null,
+    meaningVi: component?.meaningVi ?? reading?.meaningVi ?? null,
+    label: component?.nameVi ?? null,
+    kind,
   }
-  return { part, hanViet: null, meaningVi: null, label: null }
 }

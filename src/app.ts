@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { admin, type AdminBindings } from './admin'
 import { describePart, readingInWord, splitWord, type CharacterDetail, type WordDetail } from './core'
-import { getBundle, getCharacters, getComponents, getVersion, getWord } from './queries'
+import { getBundle, getCharacters, getComponents, getPartCharacters, getVersion, getWord } from './queries'
 
 // The API itself, shared by both entry points: src/index.ts (Node, local) and
 // src/worker.ts (Cloudflare Workers, production). Neither runtime detail leaks in here.
@@ -29,12 +29,13 @@ app.get('/characters/:hanzi', async (c) => {
   if (!character) return c.json({ error: 'not_found' }, 404)
 
   const forms = [...new Set([...character.parts.map((p) => p.part), ...(character.radical ? [character.radical] : [])])]
-  const [components, partChars] = await Promise.all([getComponents(forms), getCharacters(forms)])
+  const [components, partChars] = await Promise.all([getComponents(forms), getPartCharacters(forms)])
 
+  const { radical } = character
   const detail: CharacterDetail = {
     character,
-    radical: character.radical ? describePart(character.radical, components, partChars) : null,
-    parts: character.parts.map((p) => describePart(p.part, components, partChars)),
+    radical: radical ? describePart(radical, components, partChars, radical) : null,
+    parts: character.parts.map((p) => describePart(p.part, components, partChars, radical)),
   }
   return c.json(detail)
 })

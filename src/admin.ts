@@ -61,7 +61,7 @@ function listFilter(c: { req: { query: (k: string) => string | undefined } }, al
 
 const ADMIN_CHARACTER_JSON = `json_build_object(
   'id', c.id, 'hanzi', c.hanzi, 'traditional', c.traditional, 'radical', c.radical,
-  'chietTu', c.chiet_tu, 'chietTuType', c.chiet_tu_type, 'strokeCount', c.stroke_count,
+  'chietTu', c.chiet_tu, 'chietTuType', c.chiet_tu_type, 'mnemonicVi', c.mnemonic_vi, 'strokeCount', c.stroke_count,
   'hsk2Level', c.hsk2_level, 'hsk3Level', c.hsk3_level, 'status', c.status, 'updatedAt', c.updated_at,
   'radicalInfo', (SELECT json_build_object('nameVi', k.name_vi, 'hanViet', k.han_viet, 'meaningVi', k.meaning_vi)
                   FROM components k WHERE k.form = c.radical AND k.deleted_at IS NULL),
@@ -114,6 +114,7 @@ type CharacterInput = {
   strokeCount: number | null
   chietTu: string | null
   chietTuType: 'mnemonic' | 'etymology' | null
+  mnemonicVi: string | null
   readings: ReadingInput[]
   parts: string[]
 }
@@ -140,6 +141,7 @@ function parseCharacter(body: any): CharacterInput {
     strokeCount,
     chietTu: text(body?.chietTu),
     chietTuType: text(body?.chietTu) ? chietTuType ?? 'mnemonic' : null,
+    mnemonicVi: text(body?.mnemonicVi),
     readings,
     parts,
   }
@@ -165,9 +167,10 @@ admin.put('/characters/:id', async (c) => {
 
   const found = await transaction(async (q) => {
     const res = await q.query(
-      `UPDATE characters SET traditional = $2, radical = $3, stroke_count = $4, chiet_tu = $5, chiet_tu_type = $6
+      `UPDATE characters SET traditional = $2, radical = $3, stroke_count = $4, chiet_tu = $5, chiet_tu_type = $6,
+         mnemonic_vi = $7
        WHERE id = $1 AND deleted_at IS NULL`,
-      [id, input.traditional, input.radical, input.strokeCount, input.chietTu, input.chietTuType],
+      [id, input.traditional, input.radical, input.strokeCount, input.chietTu, input.chietTuType, input.mnemonicVi],
     )
     if (!res.rowCount) return false
     // Readings left out are soft-deleted so clients drop them on their next sync.
