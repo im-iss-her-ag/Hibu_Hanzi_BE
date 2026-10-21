@@ -95,13 +95,18 @@ export interface WordDetail {
   characters: WordCharacter[]
 }
 
-// Basic bundle: characters carry readings and levels only; chiet tu and parts come from /characters/:hanzi.
-export type BundleCharacter = Pick<Character, 'hanzi' | 'traditional' | 'hsk2Level' | 'hsk3Level' | 'readings'>
+// Basic bundle: characters carry readings, levels, radical and part forms (for the radical filter);
+// chiet tu and part details come from /characters/:hanzi.
+export type BundleCharacter = Pick<Character, 'hanzi' | 'traditional' | 'hsk2Level' | 'hsk3Level' | 'readings' | 'radical'> & {
+  parts: string[]
+}
 
 export interface Bundle {
   version: string
   characters: BundleCharacter[]
   words: Word[]
+  // Always the full list, not a delta.
+  components: Component[]
   // Rows removed from the bundle since `since`; the client deletes them from its local copy.
   removed: { characters: string[]; words: string[] }
 }

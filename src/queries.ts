@@ -17,8 +17,11 @@ const CHARACTER_JSON = `json_build_object(
   'parts', (SELECT coalesce(json_agg(json_build_object('part', p.part, 'position', p.position) ORDER BY p.position), '[]')
             FROM character_parts p WHERE p.char_id = c.id))`
 
+// radical + part forms let the client filter by radical without a request per character.
 const BUNDLE_CHARACTER_JSON = `json_build_object(
   'hanzi', c.hanzi, 'traditional', c.traditional, 'hsk2Level', c.hsk2_level, 'hsk3Level', c.hsk3_level,
+  'radical', c.radical,
+  'parts', (SELECT coalesce(json_agg(p.part ORDER BY p.position), '[]') FROM character_parts p WHERE p.char_id = c.id),
   'readings', ${READINGS_JSON})`
 
 const WORD_JSON = `json_build_object(
@@ -40,6 +43,7 @@ export async function getVersion(): Promise<string> {
       SELECT updated_at FROM characters
       UNION ALL SELECT updated_at FROM character_readings
       UNION ALL SELECT updated_at FROM words
+      UNION ALL SELECT updated_at FROM components
     ) t`)
   return rows[0].version
 }
@@ -76,10 +80,10 @@ export async function getWord(word: string): Promise<Word | null> {
   return rows[0]?.data ?? null
 }
 
-// The basic bundle is HSK1–4 in either standard (DESIGN.md §6).
+// The basic bundle is HSK1–6 in either standard (DESIGN.md §6).
 // coalesce: NULL levels must give false, not NULL, or `NOT (...)` drops the row from `removed`.
 const IN_BUNDLE = (t: string) =>
-  `coalesce(${t}.status = 'reviewed' AND ${t}.deleted_at IS NULL AND (${t}.hsk2_level <= 4 OR ${t}.hsk3_level <= 4), false)`
+  `coalesce(${t}.status = 'reviewed' AND ${t}.deleted_at IS NULL AND (${t}.hsk2_level <= 6 OR ${t}.hsk3_level <= 6), false)`
 
 // since = null returns the full bundle. Otherwise only rows changed after `since`, plus the
 // keys of rows that left the bundle (deleted, unreviewed, or moved to a higher level).
@@ -88,18 +92,21 @@ export async function getBundle(since: string | null): Promise<Bundle> {
   const charChanged = `(${EPOCH_US('c.updated_at')} > $1 OR EXISTS (
     SELECT 1 FROM character_readings r WHERE r.char_id = c.id AND ${EPOCH_US('r.updated_at')} > $1))`
 
-  const [version, chars, words, removedChars, removedWords] = await Promise.all([
+  // Components are small and few, so every bundle carries all of them instead of a delta.
+  const [version, chars, words, removedChars, removedWords, components] = await Promise.all([
     getVersion(),
     db().query(`SELECT ${BUNDLE_CHARACTER_JSON} AS data FROM characters c WHERE ${IN_BUNDLE('c')} AND ${charChanged}`, [after]),
     db().query(`SELECT ${WORD_JSON} AS data FROM words w WHERE ${IN_BUNDLE('w')} AND ${EPOCH_US('w.updated_at')} > $1`, [after]),
     since === null ? null : db().query(`SELECT c.hanzi FROM characters c WHERE NOT (${IN_BUNDLE('c')}) AND ${charChanged}`, [after]),
     since === null ? null : db().query(`SELECT w.word FROM words w WHERE NOT (${IN_BUNDLE('w')}) AND ${EPOCH_US('w.updated_at')} > $1`, [after]),
+    db().query(`SELECT ${COMPONENT_JSON} AS data FROM components k WHERE k.deleted_at IS NULL ORDER BY k.stroke_count NULLS LAST, k.id`),
   ])
 
   return {
     version,
     characters: chars.rows.map((r): BundleCharacter => r.data),
     words: words.rows.map((r): Word => r.data),
+    components: components.rows.map((r): Component => r.data),
     removed: {
       characters: removedChars?.rows.map((r) => r.hanzi) ?? [],
       words: removedWords?.rows.map((r) => r.word) ?? [],
